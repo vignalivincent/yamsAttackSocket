@@ -1,6 +1,81 @@
-# YamsAttackSocket
+# YamsAttackSocket - Service WebSocket pour Yams Attack
 
-Un serveur simple pour le jeu Yams Attack, écrit en Go.
+Ce service gère les connexions WebSocket pour le jeu Yams Attack, permettant aux observateurs de suivre en temps réel les actions du joueur principal.
+
+## Architecture WebSocket
+
+```
++----------------------+                +-------------------------+
+|                      | Envoi d'actions|                         |
+|   Client Principal   | -------------> |                         |
+|   (Joueur actif)     |                |                         |
+|                      |                |   Serveur WebSocket     |
++----------------------+                |                         |
+                                        |   (Gestion des jeux     |
+                                        |    par gameID)          |
+                                        |                         |
++----------------------+                |                         |
+|                      | <------------- |                         |
+|  Client Observateur  |  Réception des +-------------------------+
+|                      |     mises à    |
++----------------------+      jour      |
+                                        |
++----------------------+                |
+|                      | <------------- |
+|  Client Observateur  |  Réception des |
+|                      |     mises à    |
++----------------------+      jour      |
+         ...
++----------------------+                |
+|                      | <------------- |
+|  Client Observateur  |  Réception des |
+|       (N)            |     mises à    |
++----------------------+      jour      |
+```
+
+## Fonctionnement
+
+1. **Client Principal (Unique)**
+
+   - Se connecte avec `isPrimary=true`
+   - Seul émetteur autorisé à envoyer des messages
+   - Contrôle entièrement le jeu jusqu'à sa déconnexion
+
+2. **Clients Observateurs (Multiples)**
+
+   - Se connectent sans le paramètre `isPrimary` ou avec `isPrimary=false`
+   - Reçoivent les mises à jour du jeu en temps réel
+   - Ne peuvent pas envoyer de messages (ignorés s'ils essaient)
+
+3. **Cycle de vie**
+   - Une partie (gameID) ne peut avoir qu'un seul client principal
+   - Si le client principal se déconnecte, tous les observateurs sont notifiés et déconnectés
+   - Chaque jeu est complètement isolé des autres par son gameID
+
+## Structure des messages
+
+```json
+{
+  "type": "ACTION_TYPE",
+  "gameId": "game123",
+  "content": { /* données spécifiques à l'action */ },
+  "isPrimary": true/false
+}
+```
+
+## Connexion
+
+### Client Principal
+
+```javascript
+const socket = new WebSocket('ws://serveur/ws?gameId=game123&isPrimary=true');
+```
+
+### Client Observateur
+
+```javascript
+const socket = new WebSocket('ws://serveur/ws?gameId=game123');
+```
 
 ## Prérequis
 

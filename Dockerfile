@@ -1,30 +1,22 @@
-FROM golang:1.20-alpine AS builder
+FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-# Copier les fichiers de dépendances et télécharger les dépendances
-COPY go.mod go.sum* ./
+COPY go.mod go.sum ./
 RUN go mod download
 
-# Copier le reste du code source
 COPY . .
+RUN go build -o server ./cmd/server
 
-# Compiler l'application
-RUN CGO_ENABLED=0 GOOS=linux go build -o server .
-
-# Image finale plus légère
 FROM alpine:latest
 
 WORKDIR /app
 
-# Installer les certificats pour HTTPS
-RUN apk --no-cache add ca-certificates
-
-# Copier l'exécutable compilé depuis l'étape de build
 COPY --from=builder /app/server .
+COPY static/ /app/static/
 
-# Exposer le port que l'application utilise
+ENV PORT=8080
+
 EXPOSE 8080
 
-# Exécuter l'application
 CMD ["./server"]
