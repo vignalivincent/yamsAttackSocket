@@ -13,7 +13,7 @@ FROM alpine:latest
 WORKDIR /app
 
 COPY --from=builder /app/server .
-COPY static/ /app/static/
+# Removed static directory copy that was causing issues
 
 ENV PORT=8080
 
