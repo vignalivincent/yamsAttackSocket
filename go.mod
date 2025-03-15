@@ -1,3 +1,3 @@
-module github.com/vincentvignali/yamsAttackSocket
+module github.com/vignaliVincent/yamsAttackSocket
 
 go 1.21
