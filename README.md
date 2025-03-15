@@ -1,201 +1,71 @@
-# YamsAttackSocket - Service WebSocket pour Yams Attack
+# Yams Attack Socket
 
-Ce service gère les connexions WebSocket pour le jeu Yams Attack, permettant aux observateurs de suivre en temps réel les actions du joueur principal.
+API WebSocket et REST pour le partage et la visualisation en temps réel des parties du jeu Yams Attack.
 
-## Architecture WebSocket
+## 📋 À propos
 
-```
-+----------------------+                +-------------------------+
-|                      | Envoi d'actions|                         |
-|   Client Principal   | -------------> |                         |
-|   (Joueur actif)     |                |                         |
-|                      |                |   Serveur WebSocket     |
-+----------------------+                |                         |
-                                        |   (Gestion des jeux     |
-                                        |    par gameID)          |
-                                        |                         |
-+----------------------+                |                         |
-|                      | <------------- |                         |
-|  Client Observateur  |  Réception des +-------------------------+
-|                      |     mises à    |
-+----------------------+      jour      |
-                                        |
-+----------------------+                |
-|                      | <------------- |
-|  Client Observateur  |  Réception des |
-|                      |     mises à    |
-+----------------------+      jour      |
-         ...
-+----------------------+                |
-|                      | <------------- |
-|  Client Observateur  |  Réception des |
-|       (N)            |     mises à    |
-+----------------------+      jour      |
-```
+Yams Attack Socket est une API permettant aux joueurs de:
 
-## Fonctionnement
+- Partager des parties en cours via SMS avec des spectateurs
+- Communiquer en temps réel via WebSocket pour synchroniser l'état du jeu
+- Permettre aux spectateurs de suivre l'évolution des parties sans pouvoir intervenir
 
-1. **Client Principal (Unique)**
+## 🚀 Installation et démarrage
 
-   - Se connecte avec `isPrimary=true`
-   - Seul émetteur autorisé à envoyer des messages
-   - Contrôle entièrement le jeu jusqu'à sa déconnexion
+### Prérequis
 
-2. **Clients Observateurs (Multiples)**
+- Go 1.16+
+- Connexion internet pour les dépendances
 
-   - Se connectent sans le paramètre `isPrimary` ou avec `isPrimary=false`
-   - Reçoivent les mises à jour du jeu en temps réel
-   - Ne peuvent pas envoyer de messages (ignorés s'ils essaient)
-
-3. **Cycle de vie**
-   - Une partie (gameID) ne peut avoir qu'un seul client principal
-   - Si le client principal se déconnecte, tous les observateurs sont notifiés et déconnectés
-   - Chaque jeu est complètement isolé des autres par son gameID
-
-## Structure des messages
-
-```json
-{
-  "type": "ACTION_TYPE",
-  "gameId": "game123",
-  "content": { /* données spécifiques à l'action */ },
-  "isPrimary": true/false
-}
-```
-
-## Connexion
-
-### Client Principal
-
-```javascript
-const socket = new WebSocket('ws://serveur/ws?gameId=game123&isPrimary=true');
-```
-
-### Client Observateur
-
-```javascript
-const socket = new WebSocket('ws://serveur/ws?gameId=game123');
-```
-
-## Prérequis
-
-- Go 1.21 ou supérieur
-- Docker (optionnel)
-- Fly.io CLI (pour le déploiement)
-
-## Installation et exécution
-
-### Exécution locale
-
-1. Clonez le dépôt
-2. Exécutez le serveur :
+### Installation
 
 ```bash
-go run main.go
+# Cloner le dépôt
+git clone https://github.com/vignaliVincent/yamsAttackSocket.git
+cd yamsAttackSocket
+
+# Installer les dépendances
+go mod download
 ```
 
-Le serveur démarre sur le port 8080.
-
-### Utilisation de Docker
-
-1. Construisez l'image Docker :
+### Démarrage du serveur
 
 ```bash
-docker build -t yams-attack-socket .
+# Compiler et exécuter
+go run cmd/server/main.go
+
+# Ou construire et exécuter
+go build -o yamsAttack cmd/server/main.go
+./yamsAttack
 ```
 
-2. Exécutez le conteneur :
+Le serveur démarre par défaut sur le port 8080. Pour changer le port:
 
 ```bash
-docker run -p 8080:8080 yams-attack-socket
+PORT=9000 go run cmd/server/main.go
 ```
 
-## Test du serveur
+## 🔌 APIs disponibles
 
-Utilisez ces commandes curl pour tester l'API :
+### API REST
 
-```bash
-# Vérifier la santé du serveur
-curl -X GET http://localhost:8080/health
+- **POST `/share`**: Partager une partie avec des spectateurs via SMS
 
-# Obtenir l'état du jeu
-curl -X GET http://localhost:8080/game
+### API WebSocket
 
-# Ajouter un joueur
-curl -X POST http://localhost:8080/player \
-  -H "Content-Type: application/json" \
-  -d '{"id":"1", "name":"Joueur 1", "score":0}'
+- **WebSocket `/ws`**: Connexion pour joueurs et spectateurs
 
-# Vérifier l'état du jeu après ajout
-curl -X GET http://localhost:8080/game
-```
+## 📱 Pages de test
 
-## Déploiement sur Fly.io
+Des interfaces HTML sont disponibles pour tester l'API:
 
-### 1. Installation du CLI Fly.io
+- **Test Joueur**: <http://localhost:8080/test/player_test.html>
+- **Test Spectateur**: <http://localhost:8080/test/viewer_test.html?view=true&gameId=VOTRE_GAME_ID>
 
-Si ce n'est pas déjà fait, installez le CLI Fly.io :
+## 📖 Documentation
 
-```bash
-curl -L https://fly.io/install.sh | sh
-```
+Une documentation détaillée est disponible dans le dossier `docs/`:
 
-Ou sur macOS avec Homebrew :
+- [Guide de l'API pour développeurs frontend](docs/api_reference.md)
 
-```bash
-brew install flyctl
-```
-
-### 2. Authentification
-
-Connectez-vous à votre compte Fly.io :
-
-```bash
-fly auth login
-```
-
-### 3. Déploiement
-
-Lancez le déploiement :
-
-```bash
-# Si c'est votre première fois
-fly launch
-
-# Pour les déploiements suivants
-fly deploy
-```
-
-L'application sera accessible à l'adresse `https://yams-attack-socket.fly.dev`
-
-### 4. Surveillance et logs
-
-Pour voir les logs de l'application :
-
-```bash
-fly logs
-```
-
-## API Endpoints
-
-### GET /health
-
-Vérifie que le serveur fonctionne correctement.
-
-### GET /game
-
-Récupère l'état actuel du jeu.
-
-### POST /player
-
-Ajoute un nouveau joueur au jeu.
-
-Exemple de requête :
-
-```json
-{
-  "id": "1",
-  "name": "Player 1",
-  "score": 0
-}
-```
+## 📐 Architecture du projet
