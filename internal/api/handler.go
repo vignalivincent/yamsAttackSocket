@@ -89,12 +89,22 @@ func (h *GameHTTPHandler) InitSharedGame(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
+	// Get the origin from the request headers
+	origin := r.Header.Get("Origin")
+	var shareURL string
+	
+	if origin != "" {
+		// Use the origin for the share URL
+		shareURL = origin + "?viewer=true&gameId=" + gameID
+	} else {
+		// Fallback to the host if Origin is not available
+		scheme := "http"
+		if r.TLS != nil {
+			scheme = "https"
+		}
+		baseURL := scheme + "://" + r.Host
+		shareURL = baseURL + "?viewer=true&gameId=" + gameID
 	}
-	baseURL := scheme + "://" + r.Host
-	shareURL := baseURL + "?viewer=true&gameId=" + gameID
 
 	response := InitGameResponse{
 		GameID:   gameID,

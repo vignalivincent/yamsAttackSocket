@@ -24,7 +24,6 @@ func main() {
 	mux.HandleFunc("/hostGame", api.WithMiddlewares(wsHandler.HostGame, api.WithCORS, api.WithLogging))
 	mux.HandleFunc("/viewGame", api.WithMiddlewares(wsHandler.ViewGame, api.WithCORS, api.WithLogging))
 	
-	mux.HandleFunc("/initLiveShare", api.WithMiddlewares(gameHandler.InitSharedGame, api.WithCORS, api.WithLogging))
 	
 	port := "8080"
 	if envPort := os.Getenv("PORT"); envPort != "" {
