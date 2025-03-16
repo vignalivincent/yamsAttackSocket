@@ -1,353 +1,187 @@
-# Yams Attack Socket
+# YamsAttackSocket
 
-API WebSocket et REST pour le partage et la visualisation en temps réel des parties du jeu Yams Attack.
+A real-time game sharing service that allows players to share their game state with spectators using WebSockets.
 
-## 📋 À propos
+## Table of Contents
 
-Yams Attack Socket est une API permettant aux joueurs de:
+- [API Usage](#api-usage)
+  - [Creating a Shared Game](#creating-a-shared-game)
+  - [Connecting as a Host](#connecting-as-a-host)
+  - [Connecting as a Viewer](#connecting-as-a-viewer)
+  - [Server Statistics](#server-statistics)
+- [Architecture](#architecture)
+  - [Component Overview](#component-overview)
+  - [Data Flow](#data-flow)
+- [Development](#development)
+  - [Requirements](#requirements)
+  - [Running Locally](#running-locally)
+  - [Deployment](#deployment)
 
-- Partager des parties en cours via SMS avec des spectateurs
-- Communiquer en temps réel via WebSocket pour synchroniser l'état du jeu
-- Permettre aux spectateurs de suivre l'évolution des parties sans pouvoir intervenir
+## API Usage
 
-## 🚀 Installation et démarrage
+### Creating a Shared Game
 
-### Prérequis
+To start sharing a game, first create a new shared game instance:
 
-- Go 1.16+
-- Connexion internet pour les dépendances
+**Endpoint:** `POST /initSharedGame`
 
-### Installation
+**Request Body:**
+
+```json
+{
+  "hostPlayerId": "unique-player-identifier",
+  "gameState": {
+    // Your initial game state as a JSON object
+    "anyGameProperty": "value",
+    "score": 0,
+    "level": 1
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "gameId": "generated-uuid-for-game"
+}
+```
+
+**Example:**
 
 ```bash
-# Cloner le dépôt
-git clone https://github.com/vignaliVincent/yamsAttackSocket.git
-cd yamsAttackSocket
-
-# Installer les dépendances
-go mod download
+curl -X POST http://localhost:8080/initSharedGame \
+  -H "Content-Type: application/json" \
+  -d '{"hostPlayerId":"player123","gameState":{"score":100,"level":5}}'
 ```
 
-### Démarrage du serveur
+### Connecting as a Host
+
+After creating a game, connect as a host to update the game state in real-time:
+
+**Endpoint:** `WebSocket /hostGame?gameId=GAME_ID&hostId=HOST_ID`
+
+**Query Parameters:**
+
+- `gameId`: The UUID returned from the initSharedGame call
+- `hostId`: The hostPlayerId used when creating the game
+
+**Example:**
+
+```javascript
+// Browser JavaScript
+const gameId = 'generated-uuid-from-init';
+const hostId = 'unique-player-identifier';
+const socket = new WebSocket(`ws://localhost:8080/hostGame?gameId=${gameId}&hostId=${hostId}`);
+
+// Send game state updates
+function updateGameState(newGameState) {
+  socket.send(
+    JSON.stringify({
+      gameState: newGameState,
+    })
+  );
+}
+
+// Periodically send updates
+setInterval(() => {
+  updateGameState({
+    score: Math.floor(Math.random() * 1000),
+    level: 5,
+  });
+}, 1000);
+```
+
+### Connecting as a Viewer
+
+To view a shared game:
+
+**Endpoint:** `WebSocket /viewGame?gameId=GAME_ID`
+
+**Query Parameters:**
+
+- `gameId`: The UUID of the game to view
+
+**Example:**
+
+```javascript
+// Browser JavaScript
+const gameId = 'generated-uuid-from-init';
+const socket = new WebSocket(`ws://localhost:8080/viewGame?gameId=${gameId}`);
+
+// Handle incoming game state updates
+socket.onmessage = function (event) {
+  const data = JSON.parse(event.data);
+  if (data.type === 'gameState') {
+    console.log('New game state:', data.gameState);
+    // Update UI with new game state
+    updateGameDisplay(data.gameState);
+  }
+};
+```
+
+### Server Statistics
+
+Get information about the server's current status:
+
+**Endpoint:** `GET /stats`
+
+**Response:**
+
+```json
+{
+  "totalGamesCreated": 42,
+  "activeGames": 5,
+  "totalViewers": 27,
+  "totalHostConnections": 8,
+  "uptime": "3h15m42s",
+  "startTime": "2023-04-01T12:00:00Z"
+}
+```
+
+**Example:**
 
 ```bash
-# Compiler et exécuter
-go run cmd/server/main.go
-
-# Ou construire et exécuter
-go build -o yamsAttack cmd/server/main.go
-./yamsAttack
+curl http://localhost:8080/stats
 ```
 
-Le serveur démarre par défaut sur le port 8080. Pour changer le port:
+### Component Overview
 
-```bash
-PORT=9000 go run cmd/server/main.go
-```
+1. **GameManager**:
 
-## 🔌 Guide d'utilisation des API
+   - Central component managing game instances and their lifecycle
+   - Maintains the in-memory game state and connections
+   - Tracks server statistics and metrics
+   - Performs cleanup of inactive games
+   - Thread-safe access to shared resources
 
-### Flux d'utilisation typique
+2. **GameHTTPHandler**:
 
-1. **Joueur principal**: Joue au Yams sur l'application frontend
-2. **Partage**: Le joueur décide de partager sa partie via l'API REST `/share`
-3. **SMS**: Les spectateurs reçoivent un lien par SMS
-4. **Connexion WebSocket**:
-   - Le joueur principal se connecte pour envoyer ses mises à jour
-   - Les spectateurs se connectent pour recevoir les mises à jour
-5. **Temps réel**: Le joueur continue sa partie, les spectateurs voient l'évolution en direct
+   - HTTP API for creating games and retrieving server stats
+   - Validates incoming requests
+   - Translates HTTP requests to GameManager operations
+   - Returns appropriate HTTP responses
 
-### API REST détaillée - /share
+3. **GameWSHandler**:
+   - WebSocket interface for real-time communication
+   - Manages host connections that can update game state
+   - Manages viewer connections that receive updates
+   - Handles connection lifecycle events
+   - Broadcasts game state changes to all viewers
 
-#### Endpoint: POST `/share`
+### Data Flow
 
-**Description**: Initie le partage d'une partie avec des spectateurs via SMS. Le serveur générera un identifiant unique, créera une URL de visualisation et enverra des SMS aux numéros indiqués.
+1. **Game Creation Flow**:  
+   Client -> HTTP POST /initSharedGame -> GameHTTPHandler -> GameManager creates game -> Client receives gameId
 
-**Headers**:
+2. **Host Connection Flow**:
+   Host -> WS /hostGame -> GameWSHandler -> GameManager validates & stores connection -> Connection established
 
-```
-Content-Type: application/json
-```
+3. **Game Update Flow**:
+   Host sends update -> GameWSHandler -> GameManager updates game state -> GameWSHandler broadcasts to viewers
 
-**Request Body**:
+4. **Viewer Connection Flow**:
+   Viewer -> WS /viewGame -> GameWSHandler -> GameManager validates & adds viewer -> Initial state sent to viewer
 
-```json
-{
-  "playerId": "player123", // ID unique du joueur principal (obligatoire)
-  "gameData": {
-    // État actuel du jeu (obligatoire)
-    "players": [
-      {
-        "id": "player123",
-        "name": "Joueur Principal",
-        "scores": {
-          "ones": 3,
-          "twos": 6
-          // autres scores...
-        }
-      }
-      // autres joueurs...
-    ],
-    "isStarted": true,
-    "gameHistory": [] // historique optionnel
-  },
-  "phoneNumbers": ["33612345678"] // Numéros des spectateurs (min 1)
-}
-```
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "gameId": "550e8400-e29b-41d4-a716-446655440000",
-  "viewUrl": "http://votre-domaine.com?view=true&gameId=550e8400-e29b-41d4-a716-446655440000"
-}
-```
-
-**Actions automatiques**:
-
-- Génération d'un ID unique pour la partie
-- Envoi de SMS avec le lien aux spectateurs
-- Stockage de l'état initial de la partie
-
-## 📊 Formats de données et codes de réponse
-
-### API REST: POST `/share`
-
-#### Structure des données
-
-**Requête:**
-
-```typescript
-interface ShareRequest {
-  // ID unique du joueur principal (obligatoire)
-  playerId: string;
-
-  // État actuel du jeu (obligatoire)
-  gameData: {
-    // Liste des joueurs dans la partie
-    players: Array<{
-      id: string; // ID unique du joueur
-      name: string; // Nom d'affichage du joueur
-      scores: {
-        // Scores du joueur (tous optionnels)
-        ones?: number | 'crossed';
-        twos?: number | 'crossed';
-        threes?: number | 'crossed';
-        fours?: number | 'crossed';
-        fives?: number | 'crossed';
-        sixes?: number | 'crossed';
-        threeOfAKind?: number | 'crossed';
-        fourOfAKind?: number | 'crossed';
-        fullHouse?: number | 'crossed';
-        smallStraight?: number | 'crossed';
-        largeStraight?: number | 'crossed';
-        yahtzee?: number | 'crossed';
-        chance?: number | 'crossed';
-      };
-    }>;
-
-    // Indique si la partie a commencé
-    isStarted: boolean;
-
-    // Historique des parties précédentes (optionnel)
-    gameHistory?: Array<{
-      id: string; // ID de la partie historique
-      date: string; // Date au format ISO (ex: "2025-03-15T12:31:29.304Z")
-      players: Array<{
-        id: string; // ID du joueur
-        name: string; // Nom du joueur
-        score: number; // Score final
-      }>;
-      winnerId: string; // ID du joueur gagnant
-    }>;
-  };
-
-  // Numéros de téléphone des spectateurs (minimum 1)
-  phoneNumbers: string[];
-}
-```
-
-**Réponse:**
-
-```typescript
-interface ShareResponse {
-  // Indique si la requête a réussi
-  success: boolean;
-
-  // ID unique généré pour la partie partagée
-  gameId: string;
-
-  // URL à partager avec les spectateurs
-  viewUrl: string;
-
-  // Message d'erreur (uniquement en cas d'échec)
-  error?: string;
-}
-```
-
-#### Codes de statut
-
-| Code | Description           | Situation                                                                  |
-| ---- | --------------------- | -------------------------------------------------------------------------- |
-| 200  | OK                    | Partage réussi                                                             |
-| 400  | Bad Request           | Format JSON invalide, `playerId` manquant, ou liste de `phoneNumbers` vide |
-| 405  | Method Not Allowed    | Méthode autre que POST utilisée                                            |
-| 500  | Internal Server Error | Erreur serveur inattendue                                                  |
-
-### API WebSocket: `/ws`
-
-#### Structure des messages
-
-**Messages client → serveur:**
-
-```typescript
-interface ClientMessage {
-  // Type de message
-  type: 'join_game' | 'update_game_state' | 'leave_game' | 'view_request';
-
-  // ID de la partie
-  gameId: string;
-
-  // Contenu spécifique au type de message
-  content: any;
-}
-```
-
-**Exemples par type:**
-
-1. **join_game** - Rejoindre une partie
-
-```typescript
-{
-  type: "join_game",
-  gameId: "550e8400-e29b-41d4-a716-446655440000",
-  content: {
-    playerId: "player123",
-    playerName: "Joueur 1"
-  }
-}
-```
-
-2. **update_game_state** - Mettre à jour l'état du jeu
-
-```typescript
-{
-  type: "update_game_state",
-  gameId: "550e8400-e29b-41d4-a716-446655440000",
-  content: {
-    state: {
-      // Structure identique à gameData dans ShareRequest
-      players: [...],
-      isStarted: true,
-      gameHistory: [...]
-    },
-    version: 2  // Numéro de version (incrémental)
-  }
-}
-```
-
-3. **leave_game** - Quitter une partie
-
-```typescript
-{
-  type: "leave_game",
-  gameId: "550e8400-e29b-41d4-a716-446655440000",
-  content: {}
-}
-```
-
-**Messages serveur → client:**
-
-```typescript
-interface ServerMessage {
-  // Type de message
-  type: 'game_state_updated' | 'player_joined' | 'error';
-
-  // ID de la partie
-  gameId: string;
-
-  // Contenu spécifique au type de message
-  content: any;
-}
-```
-
-#### Codes d'erreur WebSocket
-
-| Code | Description    | Situation                                      |
-| ---- | -------------- | ---------------------------------------------- |
-| 1000 | Normal Closure | Fermeture normale de la connexion              |
-| 1001 | Going Away     | Le client se déconnecte ou le serveur s'arrête |
-| 1011 | Internal Error | Erreur interne du serveur                      |
-
-## 💻 Exemple d'implémentation JavaScript
-
-### Connexion au WebSocket (`/ws`)
-
-**Description**: Permet aux joueurs et aux spectateurs de se connecter pour envoyer et recevoir des mises à jour en temps réel.
-
-**Headers**:
-
-```
-Sec-WebSocket-Protocol: chat
-```
-
-**Request**:
-
-```
-GET /ws?gameId=550e8400-e29b-41d4-a716-446655440000
-```
-
-**Messages**:
-
-- **Joueur principal**: Envoie des mises à jour de l'état du jeu
-- **Spectateurs**: Reçoivent les mises à jour en temps réel
-
-**Exemple de message envoyé par le joueur principal**:
-
-```json
-{
-  "type": "update",
-  "gameData": {
-    "players": [
-      {
-        "id": "player123",
-        "name": "Joueur Principal",
-        "scores": {
-          "ones": 3,
-          "twos": 6
-          // autres scores...
-        }
-      }
-      // autres joueurs...
-    ],
-    "isStarted": true,
-    "gameHistory": [] // historique optionnel
-  }
-}
-```
-
-**Exemple de message reçu par les spectateurs**:
-
-```json
-{
-  "type": "update",
-  "gameData": {
-    "players": [
-      {
-        "id": "player123",
-        "name": "Joueur Principal",
-        "scores": {
-          "ones": 3,
-          "twos": 6
-          // autres scores...
-        }
-      }
-      // autres joueurs...
-    ],
-    "isStarted": true,
-    "gameHistory": [] // historique optionnel
-  }
-}
-```
+5. **Game Cleanup Flow**:
+   GameManager periodic check -> Identify inactive games -> Close connections -> Remove game data
