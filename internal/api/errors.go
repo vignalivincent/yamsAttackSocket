@@ -13,6 +13,7 @@ const (
 	ErrGameNotFound     = "Game not found"
 	ErrInvalidHostID    = "Invalid host ID"
 	ErrWebSocketUpgrade = "WebSocket upgrade error"
+	ErrNoBody = "Request body is empty or missing"
 	ErrMissingParam     = "Required parameter missing"
 )
 

@@ -45,6 +45,14 @@ func (h *GameHTTPHandler) InitSharedGame(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if r.Body == nil || r.ContentLength == 0 {
+		HandleError(w, &AppError{
+			Code:    http.StatusBadRequest,
+			Message: ErrNoBody,
+		})
+		return
+	}
+
 	var req InitGameRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		HandleError(w, &AppError{

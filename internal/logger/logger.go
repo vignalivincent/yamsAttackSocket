@@ -33,7 +33,7 @@ func (l *Logger) CustomLog(format string, args ...interface{}) {
 		fileInfo = fmt.Sprintf("# %s:%d", filepath.Base(file), line)
 	}
 
-	timestamp := time.Now().Format("15:04")
+	timestamp := time.Now().Format("15:04:05")
 	message := fmt.Sprintf(format, args...)
 	
 	// Calculate how much padding is needed
@@ -77,4 +77,5 @@ var (
 	Warn = &Logger{level: "WARNING", color: colorYellow, writer: os.Stdout, skipDepth: 2}
 	Error = &Logger{level: "ERROR", color: colorRed, writer: os.Stderr, skipDepth: 2}
 	System = &Logger{level: "SYSTEM", color: colorCyan, writer: os.Stdout, skipDepth: 2}
+	Neutral = &Logger{level: "======", color: colorReset, writer: os.Stdout, skipDepth: 2}
 )
