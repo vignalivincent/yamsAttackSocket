@@ -145,6 +145,42 @@ Get information about the server's current status:
 curl http://localhost:8080/stats
 ```
 
+## API Documentation
+
+### Game Sharing API
+
+#### Create Shared Game
+
+Initializes a new shared game session that can be joined by other players.
+
+**Endpoint:** `POST /api/games`
+
+**Request Body:**
+
+```json
+{
+  "hostPlayerId": "string",
+  "gameState": { ... }
+}
+```
+
+**Response:**
+
+```json
+{
+  "gameId": "string",
+  "shareUrl": "string"
+}
+```
+
+The `shareUrl` field contains a fully constructed URL that can be shared with other players to join the game as viewers. The URL includes the gameId parameter and sets viewer mode to true.
+
+Example:
+
+```
+https://yourgameserver.com?viewer=true&gameId=abcd1234
+```
+
 ### Component Overview
 
 1. **GameManager**:

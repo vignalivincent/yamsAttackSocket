@@ -30,6 +30,7 @@ import (
 	"github.com/vincentvignali/yamsAttackSocket/internal/game"
 )
 
+
 func NewGameHTTPHandler(gameManager *game.GameManager) *GameHTTPHandler {
 	return &GameHTTPHandler{
 		gameManager: gameManager,
@@ -88,10 +89,20 @@ func (h *GameHTTPHandler) InitSharedGame(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	baseURL := scheme + "://" + r.Host
+	shareURL := baseURL + "?viewer=true&gameId=" + gameID
+
+	response := InitGameResponse{
+		GameID:   gameID,
+		ShareURL: shareURL,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"gameId": gameID,
-	})
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *GameHTTPHandler) ServerStats(w http.ResponseWriter, r *http.Request) {
