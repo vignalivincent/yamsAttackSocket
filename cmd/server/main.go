@@ -18,10 +18,13 @@ func main() {
 	wsHandler := websocket.NewGameWSHandler(gameManager)
 	
 	mux := http.NewServeMux()
-	mux.HandleFunc("/initSharedGame", api.WithLogging(gameHandler.InitSharedGame))
-	mux.HandleFunc("/stats", api.WithLogging(gameHandler.ServerStats))
-	mux.HandleFunc("/hostGame", api.WithLogging(wsHandler.HostGame))
-	mux.HandleFunc("/viewGame", api.WithLogging(wsHandler.ViewGame))
+	
+	mux.HandleFunc("/initSharedGame", api.WithMiddlewares(gameHandler.InitSharedGame, api.WithCORS, api.WithLogging))
+	mux.HandleFunc("/stats", api.WithMiddlewares(gameHandler.ServerStats, api.WithCORS, api.WithLogging))
+	mux.HandleFunc("/hostGame", api.WithMiddlewares(wsHandler.HostGame, api.WithCORS, api.WithLogging))
+	mux.HandleFunc("/viewGame", api.WithMiddlewares(wsHandler.ViewGame, api.WithCORS, api.WithLogging))
+	
+	mux.HandleFunc("/initLiveShare", api.WithMiddlewares(gameHandler.InitSharedGame, api.WithCORS, api.WithLogging))
 	
 	port := "8080"
 	if envPort := os.Getenv("PORT"); envPort != "" {

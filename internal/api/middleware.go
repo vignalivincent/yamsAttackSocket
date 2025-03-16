@@ -10,16 +10,31 @@ import (
 func WithLogging(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		logger.Neutral.Printf("Request received: %s %s %s", r.Method, r.URL.Path, r.RemoteAddr)
+		logger.System.Printf("Request: %s %s", r.Method, r.URL.Path)
 		next(w, r)
-		duration := time.Since(start)
-		
-		if duration > 500*time.Millisecond {
-			logger.Warn.Printf("Request processed: %s %s %s (duration: %v)", 
-				r.Method, r.URL.Path, r.RemoteAddr, duration)
-		} else {
-			logger.Neutral.Printf("Request processed: %s %s %s (duration: %v)", 
-				r.Method, r.URL.Path, r.RemoteAddr, duration)
-		}
+		logger.System.Printf("Request completed: %s %s in %v", r.Method, r.URL.Path, time.Since(start))
 	}
 }
+
+func WithCORS(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*") 
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		
+		next(w, r)
+	}
+}
+
+func WithMiddlewares(handler http.HandlerFunc, middlewares ...func(http.HandlerFunc) http.HandlerFunc) http.HandlerFunc {
+	for _, middleware := range middlewares {
+		handler = middleware(handler)
+	}
+	return handler
+}
+
