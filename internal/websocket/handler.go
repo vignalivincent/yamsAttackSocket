@@ -53,7 +53,6 @@ func (h *GameWSHandler) HostGame(w http.ResponseWriter, r *http.Request) {
 	gameID := r.URL.Query().Get("gameId")
 	hostID := r.URL.Query().Get("hostId")
 	
-	// Check required parameters
 	if gameID == "" {
 		api.HandleError(w, &api.AppError{
 			Code:    http.StatusBadRequest,
@@ -69,14 +68,15 @@ func (h *GameWSHandler) HostGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gameObj, exists := h.gameManager.GetGame(gameID)
-	if !exists {
+	gameObj, err := h.gameManager.GetGame(gameID)
+	if err != nil {
 		api.HandleError(w, &api.AppError{
 			Code:    http.StatusNotFound,
 			Message: api.ErrGameNotFound,
 		})
-		return
+		return 
 	}
+
 
 	if gameObj.HostPlayerID != hostID {
 		api.HandleError(w, &api.AppError{
@@ -97,18 +97,29 @@ func (h *GameWSHandler) HostGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gameObj.Mutex.Lock()
+	isReconnection := gameObj.HostConn != nil
 	gameObj.HostConn = conn
 	gameObj.LastActivity = time.Now()
+	
+	if isReconnection {
+		for i, viewer := range gameObj.Viewers {
+			if err := viewer.WriteJSON(map[string]interface{}{
+				"type":    "hostReconnected",
+				"message": "Host has reconnected to the game",
+			}); err != nil {
+				logger.Debug.Printf("Error notifying viewer %d about host reconnection: %v", i, err)
+			}
+		}
+		logger.Info.Printf("Host reconnected: GameID=%s, HostID=%s", gameID, hostID)
+	}
 	gameObj.Mutex.Unlock()
 
-	// Update statistics
 	h.gameManager.Stats.Mutex.Lock()
 	h.gameManager.Stats.TotalHostConnections++
 	h.gameManager.Stats.Mutex.Unlock()
 
 	logger.Info.Printf("Host connected: GameID=%s, HostID=%s", gameID, hostID)
 
-	// Handle host messages
 	for {
 		var message HostMessage
 		if err := conn.ReadJSON(&message); err != nil {
@@ -116,15 +127,15 @@ func (h *GameWSHandler) HostGame(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
+		
+
 		logger.Debug.Printf("Update received: GameID=%s", gameID)
 
-		// Update game state
 		gameObj.Mutex.Lock()
 		gameObj.GameState = message.GameState
 		gameObj.LastActivity = time.Now()
 		viewerCount := len(gameObj.Viewers)
 		
-		// Broadcast to viewers
 		var failedViewers []int
 		for i, viewer := range gameObj.Viewers {
 			if err := viewer.WriteJSON(map[string]interface{}{
@@ -136,7 +147,6 @@ func (h *GameWSHandler) HostGame(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		
-		// Remove disconnected viewers (in reverse order to avoid index problems)
 		if len(failedViewers) > 0 {
 			for i := len(failedViewers) - 1; i >= 0; i-- {
 				index := failedViewers[i]
@@ -151,14 +161,27 @@ func (h *GameWSHandler) HostGame(w http.ResponseWriter, r *http.Request) {
 		logger.Debug.Printf("Game state broadcast to %d viewers", viewerCount)
 	}
 
-	// Cleanup on disconnection
-	h.gameManager.RemoveGame(gameID)
+	gameObj.Mutex.Lock()
+	gameObj.HostConn = nil
+	gameObj.LastActivity = time.Now()
+	gameObj.Mutex.Unlock()
+
+	gameObj.Mutex.Lock()
+	for i, viewer := range gameObj.Viewers {
+		if err := viewer.WriteJSON(map[string]interface{}{
+			"type":      "hostDisconnected",
+			"message": "Host has disconnected",
+		}); err != nil {
+			logger.Debug.Printf("Error sending to viewer %d: %v", i, err)
+		}
+	}
+	gameObj.Mutex.Unlock()
+
 }
 
 func (h *GameWSHandler) ViewGame(w http.ResponseWriter, r *http.Request) {
 	gameID := r.URL.Query().Get("gameId")
 	
-	// Check required parameter
 	if gameID == "" {
 		api.HandleError(w, &api.AppError{
 			Code:    http.StatusBadRequest,
@@ -167,8 +190,8 @@ func (h *GameWSHandler) ViewGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gameObj, exists := h.gameManager.GetGame(gameID)
-	if !exists {
+	gameObj, err := h.gameManager.GetGame(gameID)
+	if err != nil {
 		api.HandleError(w, &api.AppError{
 			Code:    http.StatusNotFound,
 			Message: api.ErrGameNotFound,
@@ -186,12 +209,10 @@ func (h *GameWSHandler) ViewGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update statistics
 	h.gameManager.Stats.Mutex.Lock()
 	h.gameManager.Stats.TotalHostConnections++
 	h.gameManager.Stats.Mutex.Unlock()
 
-	// Send current state to the new viewer
 	if err := conn.WriteJSON(map[string]interface{}{
 		"type":      "gameState",
 		"gameState": gameObj.GameState,
@@ -202,7 +223,6 @@ func (h *GameWSHandler) ViewGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	viewerCount := 0
-	// Notify host that a viewer has joined
 	gameObj.Mutex.Lock()
 	gameObj.LastActivity = time.Now()
 	if gameObj.HostConn != nil {
@@ -213,24 +233,20 @@ func (h *GameWSHandler) ViewGame(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	
-	// Add to viewers list
 	gameObj.Viewers = append(gameObj.Viewers, conn)
 	viewerCount = len(gameObj.Viewers)
 	gameObj.Mutex.Unlock()
 
 	logger.Info.Printf("New viewer connected: GameID=%s (total: %d viewers)", gameID, viewerCount)
 
-	// Loop to keep connection open
 	for {
 		_, _, err := conn.ReadMessage()
 		if err != nil {
 			logger.Debug.Printf("Viewer disconnected: GameID=%s, Error: %v", gameID, err)
 			break
 		}
-		// Viewers can't send meaningful data
 	}
 
-	// Cleanup on disconnection
 	gameObj.Mutex.Lock()
 	for i, v := range gameObj.Viewers {
 		if v == conn {

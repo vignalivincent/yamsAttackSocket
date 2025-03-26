@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -71,12 +72,15 @@ func (m *GameManager) CreateGame(hostPlayerID string, initialState []byte) (stri
 	
 	return gameID, nil
 }
-
-func (m *GameManager) GetGame(gameID string) (*Game, bool) {
+func (m *GameManager) GetGame(gameID string) (*Game, error) {
 	m.gamesMutex.Lock()
 	defer m.gamesMutex.Unlock()
+	
 	game, exists := m.games[gameID]
-	return game, exists
+	if !exists {
+		return nil, fmt.Errorf("game with ID %s not found", gameID)
+	}
+	return game, nil
 }
 
 func (m *GameManager) RemoveGame(gameID string) {
