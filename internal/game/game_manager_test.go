@@ -128,7 +128,7 @@ func (suite *GameManagerTestSuite) TestUpdateViewerCount() {
 }
 
 func (suite *GameManagerTestSuite) TestUpdateHostCount() {
-	t := suite.T()
+	t := suite.Suite.T()
 	
 	initialStats := suite.Manager.GetMetrics()
 	
