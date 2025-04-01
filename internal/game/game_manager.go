@@ -40,7 +40,7 @@ func NewGameManager() *GameManager {
 		},
 	}
 	
-	go manager.cleanupInactiveGames()
+	go manager.routineCleanupInactiveGames()
 	
 	return manager
 }
@@ -96,9 +96,14 @@ func (m *GameManager) RemoveGame(gameID string) {
 	logger.Info.Printf("Game removed: GameID=%s (Remaining: %d active games)", gameID, gameCount)
 }
 
-func (m *GameManager) cleanupInactiveGames() {
+func (m *GameManager) routineCleanupInactiveGames() {
 	for {
 		time.Sleep(5 * time.Minute)
+		m.CleanupInactiveGames()
+	}
+}
+
+func (m *GameManager) CleanupInactiveGames() {
 		now := time.Now()
 		var toDelete []string
 		
@@ -106,10 +111,9 @@ func (m *GameManager) cleanupInactiveGames() {
 		for id, game := range m.games {
 			game.Mutex.Lock()
 			inactiveTime := now.Sub(game.LastActivity)
-			creationTime := now.Sub(game.CreatedAt)
 			game.Mutex.Unlock()
 			
-			if inactiveTime > 2*time.Hour || creationTime > 12*time.Hour {
+			if inactiveTime > 2*time.Hour  {
 				toDelete = append(toDelete, id)
 			}
 		}
@@ -138,7 +142,6 @@ func (m *GameManager) cleanupInactiveGames() {
 		m.Stats.Mutex.Unlock()
 		
 		logger.System.Printf("Cleanup completed: %d games removed, %d active games remaining", len(toDelete), gameCount)
-	}
 }
 
 func (m *GameManager) GetMetrics() ServerStats {
