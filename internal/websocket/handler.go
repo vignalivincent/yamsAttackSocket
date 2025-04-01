@@ -34,7 +34,17 @@ This component is critical for enabling the live-sharing functionality that allo
 players to share their game progress in real time with spectators.
 */
 
+// HostConnectionState represents the state of the host's connection
+type HostConnectionState int
 
+const (
+	// HostNeverConnected indicates the host has never connected to the game yet
+	HostNeverConnected HostConnectionState = iota
+	// HostConnected indicates the host is currently connected
+	HostConnected
+	// HostDisconnected indicates the host was connected before but is currently disconnected
+	HostDisconnected
+)
 
 func NewGameWSHandler(gameManager *game.GameManager) *GameWSHandler {
 	return &GameWSHandler{
@@ -52,7 +62,7 @@ func NewGameWSHandler(gameManager *game.GameManager) *GameWSHandler {
 func (h *GameWSHandler) HostGame(w http.ResponseWriter, r *http.Request) {
 	gameID := r.URL.Query().Get("gameId")
 	hostID := r.URL.Query().Get("hostId")
-	
+
 	if gameID == "" {
 		api.HandleError(w, &api.AppError{
 			Code:    http.StatusBadRequest,
@@ -74,9 +84,8 @@ func (h *GameWSHandler) HostGame(w http.ResponseWriter, r *http.Request) {
 			Code:    http.StatusNotFound,
 			Message: api.ErrGameNotFound,
 		})
-		return 
+		return
 	}
-
 
 	if gameObj.HostPlayerID != hostID {
 		api.HandleError(w, &api.AppError{
@@ -97,11 +106,17 @@ func (h *GameWSHandler) HostGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gameObj.Mutex.Lock()
-	isReconnection := gameObj.HostConn != nil
+
+	var connectionType string
+	isFirstConnection := gameObj.HostConnectionState == game.HostNeverConnected
+	isReconnection := gameObj.HostConnectionState == game.HostDisconnected
+
 	gameObj.HostConn = conn
+	gameObj.HostConnectionState = game.HostConnected
 	gameObj.LastActivity = time.Now()
-	
+
 	if isReconnection {
+		connectionType = "reconnected"
 		for i, viewer := range gameObj.Viewers {
 			if err := viewer.WriteJSON(map[string]interface{}{
 				"type":    "hostReconnected",
@@ -110,7 +125,11 @@ func (h *GameWSHandler) HostGame(w http.ResponseWriter, r *http.Request) {
 				logger.Debug.Printf("Error notifying viewer %d about host reconnection: %v", i, err)
 			}
 		}
-		logger.Info.Printf("Host reconnected: GameID=%s, HostID=%s", gameID, hostID)
+	} else if isFirstConnection {
+		connectionType = "connected for the first time"
+	} else {
+		connectionType = "connected (abnormal state)"
+		logger.Warn.Printf("Host connection in unexpected state: GameID=%s, HostID=%s", gameID, hostID)
 	}
 	gameObj.Mutex.Unlock()
 
@@ -118,7 +137,7 @@ func (h *GameWSHandler) HostGame(w http.ResponseWriter, r *http.Request) {
 	h.gameManager.Stats.TotalHostConnections++
 	h.gameManager.Stats.Mutex.Unlock()
 
-	logger.Info.Printf("Host connected: GameID=%s, HostID=%s", gameID, hostID)
+	logger.Info.Printf("Host %s: GameID=%s, HostID=%s", connectionType, gameID, hostID)
 
 	for {
 		var message HostMessage
@@ -127,15 +146,13 @@ func (h *GameWSHandler) HostGame(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		
-
 		logger.Debug.Printf("Update received: GameID=%s", gameID)
 
 		gameObj.Mutex.Lock()
 		gameObj.GameState = message.GameState
 		gameObj.LastActivity = time.Now()
 		viewerCount := len(gameObj.Viewers)
-		
+
 		var failedViewers []int
 		for i, viewer := range gameObj.Viewers {
 			if err := viewer.WriteJSON(map[string]interface{}{
@@ -146,7 +163,7 @@ func (h *GameWSHandler) HostGame(w http.ResponseWriter, r *http.Request) {
 				failedViewers = append(failedViewers, i)
 			}
 		}
-		
+
 		if len(failedViewers) > 0 {
 			for i := len(failedViewers) - 1; i >= 0; i-- {
 				index := failedViewers[i]
@@ -155,21 +172,22 @@ func (h *GameWSHandler) HostGame(w http.ResponseWriter, r *http.Request) {
 			}
 			viewerCount = len(gameObj.Viewers)
 		}
-		
+
 		gameObj.Mutex.Unlock()
-		
+
 		logger.Debug.Printf("Game state broadcast to %d viewers", viewerCount)
 	}
 
 	gameObj.Mutex.Lock()
 	gameObj.HostConn = nil
+	gameObj.HostConnectionState = game.HostDisconnected
 	gameObj.LastActivity = time.Now()
 	gameObj.Mutex.Unlock()
 
 	gameObj.Mutex.Lock()
 	for i, viewer := range gameObj.Viewers {
 		if err := viewer.WriteJSON(map[string]interface{}{
-			"type":      "hostDisconnected",
+			"type":    "hostDisconnected",
 			"message": "Host has disconnected",
 		}); err != nil {
 			logger.Debug.Printf("Error sending to viewer %d: %v", i, err)
@@ -181,7 +199,7 @@ func (h *GameWSHandler) HostGame(w http.ResponseWriter, r *http.Request) {
 
 func (h *GameWSHandler) ViewGame(w http.ResponseWriter, r *http.Request) {
 	gameID := r.URL.Query().Get("gameId")
-	
+
 	if gameID == "" {
 		api.HandleError(w, &api.AppError{
 			Code:    http.StatusBadRequest,
@@ -232,7 +250,7 @@ func (h *GameWSHandler) ViewGame(w http.ResponseWriter, r *http.Request) {
 			logger.Warn.Printf("Unable to notify host of new viewer: %v", err)
 		}
 	}
-	
+
 	gameObj.Viewers = append(gameObj.Viewers, conn)
 	viewerCount = len(gameObj.Viewers)
 	gameObj.Mutex.Unlock()
@@ -257,6 +275,5 @@ func (h *GameWSHandler) ViewGame(w http.ResponseWriter, r *http.Request) {
 	viewerCount = len(gameObj.Viewers)
 	gameObj.LastActivity = time.Now()
 	gameObj.Mutex.Unlock()
-	
 	logger.Info.Printf("Viewer disconnected: GameID=%s (remaining: %d viewers)", gameID, viewerCount)
 }
