@@ -32,7 +32,7 @@ do
 done
 
 echo "Running tests before push..."
-make test
+gotestsum 
 
 if [ $? -ne 0 ]; then
   echo "Tests failed! Push aborted."
