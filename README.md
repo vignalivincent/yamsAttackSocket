@@ -16,6 +16,7 @@ A real-time game sharing service that allows players to share their game state w
   - [Requirements](#requirements)
   - [Running Locally](#running-locally)
   - [Deployment](#deployment)
+  - [Git Hooks](#git-hooks)
 
 ## API Usage
 
@@ -221,3 +222,144 @@ https://yourgameserver.com?viewer=true&gameId=abcd1234
 
 5. **Game Cleanup Flow**:
    GameManager periodic check -> Identify inactive games -> Close connections -> Remove game data
+
+## Development
+
+### Requirements
+
+- Node.js >= 14
+- npm >= 6
+
+### Running Locally
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/yourusername/yamsAttackSocket.git
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+3. Start the development server:
+
+   ```bash
+   npm start
+   ```
+
+### Deployment
+
+To deploy the application, follow these steps:
+
+1. Build the project:
+
+   ```bash
+   npm run build
+   ```
+
+2. Deploy the build directory to your server.
+
+### Git Hooks
+
+This project uses Git hooks to ensure code quality and consistent workflows:
+
+1. **Pre-commit hook**:
+
+   - Runs tests automatically before each commit
+   - Prevents direct commits to the master branch
+   - Enforces commit message conventions
+
+2. **Pre-push hook**:
+   - Runs tests before pushing to remote
+   - Prevents pushing to the master branch
+   - Enforces branch naming conventions
+
+To set up the hooks, run:
+
+```bash
+# Make the setup script executable
+chmod +x scripts/setup-hooks.sh
+
+# Run the setup script
+./scripts/setup-hooks.sh
+```
+
+#### Commit Message Convention
+
+Commit messages must follow this format:
+
+```
+<type>[(scope)]: <description>
+```
+
+Where `type` is one of:
+
+- **feat**: A new feature
+- **fix**: A bug fix
+- **docs**: Documentation changes
+- **style**: Code style changes (formatting, etc)
+- **refactor**: Code changes that neither fix bugs nor add features
+- **perf**: Performance improvements
+- **test**: Adding or fixing tests
+- **build**: Build system changes
+- **ci**: CI configuration changes
+- **chore**: Routine tasks, maintenance
+- **revert**: Reverting a previous commit
+- **security**: Security-related changes
+- **deps**: Dependency updates
+- **conf**: Configuration changes
+- **ops**: DevOps related changes
+- **i18n**: Internationalization and localization
+- **db**: Database related changes
+- **merge**: Merge commits
+- **hotfix**: Critical hotfix
+- **release**: Release commits
+
+Example commit messages:
+
+```
+feat(api): add user authentication endpoint
+fix: resolve null pointer in game state handler
+docs: update API documentation
+security(auth): fix XSS vulnerability
+deps: upgrade axios to v1.6.2
+```
+
+#### Branch Naming Convention
+
+Branch names must follow this format:
+
+```
+<type>/<description>
+```
+
+Where `type` is one of:
+
+- **feature**: New feature or enhancement
+- **bugfix**: Bug fix
+- **hotfix**: Urgent fix, usually for production
+- **release**: Release preparation
+- **docs**: Documentation updates
+- **refactor**: Code refactoring
+- **test**: Test-related changes
+- **infra**: Infrastructure changes
+- **config**: Configuration updates
+- **scripts**: Tooling and scripting changes
+- **docker**: Docker-related changes
+- **cicd**: CI/CD pipeline modifications
+
+And `description` is a brief, hyphenated description in lowercase.
+
+Example branch names:
+
+```
+feature/user-authentication
+bugfix/login-validation
+infra/kubernetes-setup
+docker/multi-stage-build
+scripts/deployment-automation
+cicd/github-actions-workflow
+```

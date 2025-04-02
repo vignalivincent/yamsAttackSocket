@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Prevent direct commits to master branch
+BRANCH=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
+if [ "$BRANCH" = "master" ]; then
+  echo "Direct commits to master branch are not allowed."
+  echo "Please create a branch and submit a pull request instead."
+  exit 1
+fi
+
+# Check commit message format
+commit_msg=$(cat "$GIT_DIR/COMMIT_EDITMSG")
+commit_regex='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security|deps|conf|ops|i18n|db|merge|hotfix|release)(\([a-z0-9-]+\))?: .{1,50}'
+
+if ! [[ "$commit_msg" =~ $commit_regex ]]; then
+  echo "Commit message format is incorrect."
+  echo "It should match: <type>[(scope)]: <description>"
+  echo "Examples: feat(api): add new endpoint, fix: resolve null pointer exception"
+  echo "Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert, security, deps, conf, ops, i18n, db, merge, hotfix, release"
+  exit 1
+fi
+
+echo "Running tests before commit..."
+make test
+
+if [ $? -ne 0 ]; then
+  echo "Tests failed! Commit aborted."
+  exit 1
+fi
+
+exit 0
