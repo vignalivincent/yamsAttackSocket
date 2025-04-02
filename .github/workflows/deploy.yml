@@ -1,0 +1,26 @@
+name: Deploy YamsAttackSocket
+
+on:
+  workflow_run:
+    workflows: ['YamsAttackSocket Tests']
+    types:
+      - completed
+    branches: [main, master]
+
+jobs:
+  deploy:
+    name: Deploy Application
+    runs-on: ubuntu-latest
+    # Only run if the tests workflow succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up deployment environment
+        run: echo "Setting up deployment environment"
+
+      # Add your deployment steps here
+      - name: Deploy application
+        run: echo "Deploying application"
+        # Replace with your actual deployment commands
