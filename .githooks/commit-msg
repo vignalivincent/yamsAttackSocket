@@ -1,0 +1,45 @@
+#!/bin/bash
+
+commit_msg_file=$1
+commit_msg=$(cat "$commit_msg_file")
+
+# Simplified regex with basic emoji handling
+commit_regex='^[[:space:]]*([-_a-zA-Z0-9❤️✨🐛🔥📝💄♻️🚀✅🔒⬆️🔧🐳👷🍱🌐🗃️🔀🩹🚢]|)[[:space:]]*(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security|deps|conf|ops|i18n|db|merge|hotfix|release)(\([a-z0-9-]+\))?:[[:space:]]+.+'
+
+if ! [[ "$commit_msg" =~ $commit_regex ]]; then
+  echo "ERROR: Commit message format is incorrect."
+  echo "It should match: [emoji]<type>[(scope)]: <description>"
+  echo ""
+  echo "Examples:"
+  echo "✨ feat(api): add new endpoint"
+  echo "🐛 fix: resolve null pointer exception"
+  echo "📝 docs: update README"
+  echo "🔧 conf: adjust configuration settings"
+  
+  echo ""
+  echo "Supported emoji and types:"
+  echo "✨ feat     - New feature"
+  echo "🐛 fix      - Bug fix"
+  echo "📝 docs     - Documentation changes"
+  echo "💄 style    - Formatting, styling changes"
+  echo "♻️  refactor - Code refactoring"
+  echo "🚀 perf     - Performance improvements"
+  echo "✅ test     - Tests"
+  echo "🔧 build    - Build system changes"
+  echo "👷 ci       - CI related changes"
+  echo "🍱 chore    - Maintenance tasks"
+  echo "⬆️  deps     - Dependencies updates"
+  echo "🔒 security - Security fixes"
+  echo "🔧 conf     - Configuration changes"
+  echo "🐳 ops      - Operations related"
+  echo "🌐 i18n     - Internationalization"
+  echo "🗃️  db       - Database related"
+  echo "🔀 merge    - Merge branches"
+  echo "🩹 hotfix   - Critical hotfixes"
+  echo "🚢 release  - Releases"
+  
+  exit 1
+fi
+
+echo "Commit message format is correct!"
+exit 0
