@@ -349,7 +349,6 @@ Where `type` is one of:
 - **config**: Configuration updates
 - **scripts**: Tooling and scripting changes
 - **docker**: Docker-related changes
-- **cicd**: CI/CD pipeline modifications
 
 And `description` is a brief, hyphenated description in lowercase.
 
