@@ -2,13 +2,21 @@
 
 # Check branch naming convention for the current branch
 BRANCH=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
-BRANCH_REGEX='^(feature|bugfix|hotfix|release|docs|refactor|test|infra|config|scripts|docker|cicd)/[a-z0-9-]+$'
+FULL_BRANCH=$(git symbolic-ref HEAD)
+PATTERN_TYPE="feature|bugfix|hotfix|release|docs|refactor|test|infra|config|scripts|docker|cicd"
+BRANCH_REGEX="^($PATTERN_TYPE)/[a-z0-9_-]+$"
 
-if ! [[ "$BRANCH" =~ $BRANCH_REGEX ]]; then
-  echo "Branch naming does not follow convention: $BRANCH"
+
+# Extract the actual branch name without refs/heads/
+CLEAN_BRANCH=${FULL_BRANCH#refs/heads/}
+echo "Clean branch for checking: $CLEAN_BRANCH"
+
+# Check if branch is in correct format
+if ! [[ "$CLEAN_BRANCH" =~ $BRANCH_REGEX ]]; then
+  echo "Branch naming does not follow convention: $CLEAN_BRANCH"
   echo "Branch names should follow the pattern: <type>/<description>"
   echo "Where <type> is one of: feature, bugfix, hotfix, release, docs, refactor, test, infra, config, scripts, docker, cicd"
-  echo "And <description> is lowercase with hyphens (e.g., user-authentication)"
+  echo "And <description> is lowercase with hyphens or underscores (e.g., user-authentication or git_script)"
   echo "Example: feature/user-authentication"
   exit 1
 fi

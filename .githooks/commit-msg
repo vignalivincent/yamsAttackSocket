@@ -1,51 +1,45 @@
 #!/bin/bash
 
-# Colors for better output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
 commit_msg_file=$1
 commit_msg=$(cat "$commit_msg_file")
 
-# Updated regex to allow for emoji at the beginning
-# Supports both with and without emoji format
-commit_regex='^(🎉|✨|🐛|🔥|📝|💄|♻️|🚀|✅|🔒|⬆️|🔧|🐳|👷|🍱|🌐|🗃️|🔀|🩹|🚢|)?(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security|deps|conf|ops|i18n|db|merge|hotfix|release)(\([a-z0-9-]+\))?: .{1,50}'
+# Simplified regex with basic emoji handling
+commit_regex='^[[:space:]]*([-_a-zA-Z0-9❤️✨🐛🔥📝💄♻️🚀✅🔒⬆️🔧🐳👷🍱🌐🗃️🔀🩹🚢]|)[[:space:]]*(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security|deps|conf|ops|i18n|db|merge|hotfix|release)(\([a-z0-9-]+\))?:[[:space:]]+.+'
 
 if ! [[ "$commit_msg" =~ $commit_regex ]]; then
-  echo -e "${RED}ERROR: Commit message format is incorrect.${NC}"
-  echo -e "${BLUE}It should match:${NC} [emoji]<type>[(scope)]: <description>"
-  echo -e "\n${YELLOW}Examples:${NC}"
-  echo -e "✨ feat(api): add new endpoint"
-  echo -e "🐛 fix: resolve null pointer exception"
-  echo -e "📝 docs: update README"
-  echo -e "🔧 conf: adjust configuration settings"
+  echo "ERROR: Commit message format is incorrect."
+  echo "It should match: [emoji]<type>[(scope)]: <description>"
+  echo ""
+  echo "Examples:"
+  echo "✨ feat(api): add new endpoint"
+  echo "🐛 fix: resolve null pointer exception"
+  echo "📝 docs: update README"
+  echo "🔧 conf: adjust configuration settings"
   
-  echo -e "\n${GREEN}Supported emoji and types:${NC}"
-  echo -e "✨ feat     - New feature"
-  echo -e "🐛 fix      - Bug fix"
-  echo -e "📝 docs     - Documentation changes"
-  echo -e "💄 style    - Formatting, styling changes"
-  echo -e "♻️  refactor - Code refactoring"
-  echo -e "🚀 perf     - Performance improvements"
-  echo -e "✅ test     - Tests"
-  echo -e "🔧 build    - Build system changes"
-  echo -e "👷 ci       - CI related changes"
-  echo -e "🍱 chore    - Maintenance tasks"
-  echo -e "⬆️  deps     - Dependencies updates"
-  echo -e "🔒 security - Security fixes"
-  echo -e "🔧 conf     - Configuration changes"
-  echo -e "🐳 ops      - Operations related"
-  echo -e "🌐 i18n     - Internationalization"
-  echo -e "🗃️  db       - Database related"
-  echo -e "🔀 merge    - Merge branches"
-  echo -e "🩹 hotfix   - Critical hotfixes"
-  echo -e "🚢 release  - Releases"
+  echo ""
+  echo "Supported emoji and types:"
+  echo "✨ feat     - New feature"
+  echo "🐛 fix      - Bug fix"
+  echo "📝 docs     - Documentation changes"
+  echo "💄 style    - Formatting, styling changes"
+  echo "♻️  refactor - Code refactoring"
+  echo "🚀 perf     - Performance improvements"
+  echo "✅ test     - Tests"
+  echo "🔧 build    - Build system changes"
+  echo "👷 ci       - CI related changes"
+  echo "🍱 chore    - Maintenance tasks"
+  echo "⬆️  deps     - Dependencies updates"
+  echo "🔒 security - Security fixes"
+  echo "🔧 conf     - Configuration changes"
+  echo "🐳 ops      - Operations related"
+  echo "🌐 i18n     - Internationalization"
+  echo "🗃️  db       - Database related"
+  echo "🔀 merge    - Merge branches"
+  echo "🩹 hotfix   - Critical hotfixes"
+  echo "🚢 release  - Releases"
   
   exit 1
 fi
 
-echo -e "${GREEN}Commit message format is correct!${NC}"
+echo "Commit message format is correct!"
 exit 0
