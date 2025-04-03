@@ -1,0 +1,19 @@
+name: Health Check
+
+on:
+  schedule:
+    - cron: '*/30 * * * *' # Run every 30 minutes
+
+jobs:
+  health-check:
+    name: API Health Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check API health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://yamsattacksocket-summer-sunset-4208.fly.dev/stats)
+          if [[ "$STATUS" -ne 200 ]]; then
+            echo "Health check failed with status $STATUS"
+            exit 1
+          fi
+          echo "Health check passed with status $STATUS"
