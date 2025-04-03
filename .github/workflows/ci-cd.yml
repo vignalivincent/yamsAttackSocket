@@ -1,4 +1,4 @@
-name: YamsAttackSocket Build and Test
+name: YamsAttackSocket CI/CD Pipeline
 
 on:
   push:
@@ -7,53 +7,9 @@ on:
     branches: ['**'] # Run on pull requests to any branch
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.21'
-          cache: true
-
-      - name: Install dependencies
-        run: go mod download
-
-      - name: Verify dependencies
-        run: go mod verify
-
-      - name: Build Go application
-        run: go build -v ./cmd/server
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v4
-        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/yams-attack-socket:latest
-
   test:
+    name: Test
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -71,3 +27,57 @@ jobs:
 
       - name: Run tests
         run: go test -v ./...
+
+  build:
+    name: Build
+    needs: test # This job will only run if the test job succeeds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Build Go application
+        run: go build -v ./cmd/server
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/yams-attack-socket:latest
+
+  deploy:
+    name: Deploy to Fly.io
+    needs: [test, build] # This job will only run if both test and build jobs succeed
+    runs-on: ubuntu-latest
+    # Only run on master/main branch
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
