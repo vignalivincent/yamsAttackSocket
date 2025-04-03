@@ -2,16 +2,14 @@ name: YamsAttackSocket Tests
 
 on:
   push:
-    branches: [main, master, develop]
+    branches: [main, master]
   pull_request:
-    branches: [main, master, develop]
+    branches: [main, master]
 
 jobs:
   test:
-    name: Run Tests
     runs-on: ubuntu-latest
-    outputs:
-      test_success: ${{ steps.tests.outcome == 'success' }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -28,5 +26,4 @@ jobs:
         run: go mod verify
 
       - name: Run tests
-        id: tests
         run: go test -v ./...
